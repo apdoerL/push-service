@@ -2,6 +2,9 @@ package org.apdoer.push.service.job.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
+import org.apdoer.push.service.event.SourceEvent;
+import org.apdoer.push.service.event.impl.EventBusChannelImpl;
+import org.apdoer.push.service.event.impl.GuavaEventBusManager;
 import org.apdoer.push.service.job.Job;
 import org.apdoer.push.service.job.JobDescribution;
 import org.apdoer.push.service.job.thread.JobThreadPool;
@@ -14,6 +17,7 @@ import org.apdoer.push.service.source.impl.ZmqSourceImpl;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author apdoer
@@ -62,8 +66,19 @@ public class PushSourceJob implements Job {
             ProcessPayload processPayload = processor.process(sourcePayload);
             if (Objects.nonNull(processPayload)
                     && StringUtils.isNotBlank(processPayload.getSystemChannel())
-                    && !CollectionUtils.isEmpty(processPayload.getPayload())){
+                    && !CollectionUtils.isEmpty(processPayload.getPayload())) {
                 //获取数据的内部通道
+                EventBusChannelImpl eventBusChannel = (EventBusChannelImpl) GuavaEventBusManager.getInstance().getEventBusChannel(processPayload.getSystemChannel());
+                if (Objects.nonNull(eventBusChannel)) {
+                    while (eventBusChannel.backPress(1, 3L, TimeUnit.SECONDS)) {
+                        //实现反压策略
+                    }
+                    //数据发送到内部通道
+                    eventBusChannel.publish(new SourceEvent(processPayload));
+                } else {
+                    Thread.sleep(jobDescribution.getSourceBlankSleepTime());
+                }
+
             }
         }
 
@@ -71,21 +86,21 @@ public class PushSourceJob implements Job {
 
     @Override
     public void shutdown() throws Exception {
-
+        this.source.close();
     }
 
     @Override
     public void cleanup() {
-
+        this.source.cleanUp();
     }
 
     @Override
     public void exceptionHandle(Exception e) {
-
+        log.error("job execute error,jobName:{}", this.jobDescribution.getJobName(), e);
     }
 
     @Override
     public JobDescribution getJobDescribbution() {
-        return null;
+        return this.jobDescribution;
     }
 }

@@ -1,5 +1,9 @@
 package org.apdoer.push.service.db.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -11,6 +15,9 @@ import java.util.Date;
  * 推送配置
  * @author apdoer
  */
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
 @Table(name = "web_push_config")
 public class PushConfigPo implements Serializable {
 	

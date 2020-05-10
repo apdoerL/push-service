@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
  * @version 1.0
  * @date 2020/5/9 15:36
  */
-public class EventBusChannelImpl implements EventBusChannel {
+public class EventBusChannelImpl implements EventBusChannel, BackPressure {
     /**
      * 无界队列,max无意义
      */
@@ -44,37 +44,42 @@ public class EventBusChannelImpl implements EventBusChannel {
                 DEFAULT_KEEP_ALIVE_TIME, TimeUnit.SECONDS, new LinkedBlockingQueue<>(INITIAL_CAPACITY),
                 new NameableThreadFactory("push-systemChannel"));
         this.eventBus = new AsyncEventBus(threadPoolExecutor);
-        this.backPressure = new FixedThreadPoolBackPressure(backpressureSize,threadPoolExecutor);
+        this.backPressure = new FixedThreadPoolBackPressure(backpressureSize, threadPoolExecutor);
         this.name = name;
     }
 
     @Override
     public void subscribe(SourceEventListener listener) {
-
+        this.eventBus.register(listener);
     }
 
     @Override
     public void unSubscribe(SourceEventListener listener) {
-
+        this.eventBus.unregister(listener);
     }
 
     @Override
     public void publish(SourceEvent event) {
-
+        this.eventBus.post(event);
     }
 
     @Override
     public int getQueueSize() {
-        return 0;
+        return threadPoolExecutor.getQueue().size();
     }
 
     @Override
     public void shutdown() {
-
+        threadPoolExecutor.shutdown();
     }
 
     @Override
     public String getName() {
-        return null;
+        return this.name;
+    }
+
+    @Override
+    public boolean backPress(int batch, long timeout, TimeUnit timeUnit) throws InterruptedException {
+        return this.backPressure.backPress(batch, timeout, timeUnit);
     }
 }

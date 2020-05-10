@@ -86,4 +86,9 @@ public interface EventBusManager {
     Map<String, Integer> getChannelWaitSize();
 
 
+    /**
+     * 关闭所有的channel
+     */
+    void shutdown();
+
 }

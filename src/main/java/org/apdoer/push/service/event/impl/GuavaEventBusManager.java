@@ -6,6 +6,7 @@ import org.apdoer.push.service.event.EventBusManager;
 import org.apdoer.push.service.event.SourceEvent;
 import org.apdoer.push.service.event.SourceEventListener;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -91,21 +92,45 @@ public class GuavaEventBusManager implements EventBusManager {
 
     @Override
     public void buildEventBusChannel(String systemChannel, int backPressureSize) {
-
+        try {
+            lock.lock();
+            if (!eventBusChannelMap.containsKey(systemChannel)) {
+                EventBusChannel channel = new EventBusChannelImpl(backPressureSize, systemChannel);
+                eventBusChannelMap.put(systemChannel, channel);
+            }
+        } catch (Exception e) {
+            log.error("", e);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     public EventBusChannel getEventBusChannel(String systemChannel) {
+        if (eventBusChannelMap.containsKey(systemChannel)) {
+            return eventBusChannelMap.get(systemChannel);
+        }
         return null;
     }
 
     @Override
     public boolean containsChannel(String systemChannel) {
-        return false;
+        return eventBusChannelMap.containsKey(systemChannel);
     }
 
     @Override
     public Map<String, Integer> getChannelWaitSize() {
-        return null;
+        Map<String, Integer> map = new HashMap<>(eventBusChannelMap.size());
+        for (Map.Entry<String, EventBusChannel> entry : eventBusChannelMap.entrySet()) {
+            map.put(entry.getKey(), entry.getValue().getQueueSize());
+        }
+        return map;
+    }
+
+    @Override
+    public void shutdown() {
+        for (Map.Entry<String, EventBusChannel> entry : eventBusChannelMap.entrySet()) {
+            entry.getValue().shutdown();
+        }
     }
 }
